@@ -71,7 +71,7 @@ export default function ApplicationSelector({
   return (
     <div className={className}>
       <h2 className="text-2xl font-bold text-gray-900 mb-4">Select Application</h2>
-      <p className="text-gray-600 mb-6">
+      <p className="text-gray-700 mb-6">
         Choose the application or tool required for your thesis analysis
         {analysisType && (
           <span className="text-blue-600 font-medium ml-1">
@@ -92,7 +92,7 @@ export default function ApplicationSelector({
           >
             <div className="text-3xl mb-2">{app.icon}</div>
             <h3 className="font-semibold text-gray-900 mb-1">{app.name}</h3>
-            <p className="text-sm text-gray-600">{app.description}</p>
+            <p className="text-sm text-gray-700">{app.description}</p>
           </button>
         ))}
       </div>

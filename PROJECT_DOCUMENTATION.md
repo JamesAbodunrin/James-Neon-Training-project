@@ -43,18 +43,19 @@
 - **Route**: `src/app/analysis/page.tsx`
 - **Description**: Interactive data analysis page
 - **Features**:
-  - Analysis type selection
-  - Application selection
-  - Data input (manual/file upload)
-  - Live analysis results
-  - Copy/download functionality
-- **Components Used**: 
-  - Header
-  - Footer
-  - AnalysisTypeSelector
-  - ApplicationSelector
-  - DataInput
-  - AnalysisResults
+  - Analysis type selection (Statistical, Regression, Correlation, Clustering, Time-series, Text-analysis)
+  - Application selection (Python, R, Excel, MATLAB, SPSS, NLTK; filtered by type)
+  - Analyses to run (options filtered by type and application; selection trimmed when type/application change)
+  - Research purpose (optional)
+  - Data input (manual paste, file upload with 20MB limit, or Excel-style spreadsheet)
+  - Live analysis results (tables, charts, interpretation, effect sizes)
+  - Copy, download .txt, download .docx (report includes charts/figures)
+  - Error boundary around results; empty state when type/application not selected; large-dataset notice when input >50k characters
+- **Components Used**:
+  - Header, Footer
+  - AnalysisTypeSelector, ApplicationSelector, AnalysisOptionsSelector
+  - DataInput, AnalysisResults
+  - AnalysisErrorBoundary (wraps AnalysisResults)
 
 ### 4. **Projects Page** (`/projects`)
 - **Route**: `src/app/projects/page.tsx`

@@ -21,7 +21,7 @@ const analysisTypes: AnalysisType[] = [
   {
     id: 'regression',
     name: 'Regression Analysis',
-    description: 'Linear, logistic, and polynomial regression modeling',
+    description: 'Linear regression (Y on X): slope, intercept, R², and supporting analyses',
     icon: '📈',
   },
   {
@@ -33,19 +33,19 @@ const analysisTypes: AnalysisType[] = [
   {
     id: 'clustering',
     name: 'Clustering Analysis',
-    description: 'K-means, hierarchical, and DBSCAN clustering algorithms',
+    description: 'K-means clustering on numeric variables with supporting descriptive stats',
     icon: '🎯',
   },
   {
     id: 'time-series',
     name: 'Time Series Analysis',
-    description: 'Trend analysis, seasonality, and forecasting',
+    description: 'Linear trend over time and supporting correlation/descriptive analyses',
     icon: '⏰',
   },
   {
     id: 'text-analysis',
     name: 'Text Analysis',
-    description: 'Sentiment analysis, topic modeling, and NLP processing',
+    description: 'Word frequency and supporting descriptive analyses on text/categorical columns',
     icon: '📝',
   },
 ];
@@ -58,7 +58,7 @@ export default function AnalysisTypeSelector({
   return (
     <div className={className}>
       <h2 className="text-2xl font-bold text-gray-900 mb-4">Select Analysis Type</h2>
-      <p className="text-gray-600 mb-6">Choose the type of analysis you want to perform on your data</p>
+      <p className="text-gray-700 mb-6">Choose the type of analysis you want to perform on your data</p>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {analysisTypes.map((type) => (
           <button
@@ -70,9 +70,9 @@ export default function AnalysisTypeSelector({
                 : 'border-gray-200 bg-white hover:border-blue-300 hover:shadow-sm'
             }`}
           >
-            <div className="text-3xl mb-2">{type.icon}</div>
+            <div className="text-3xl mb-2" aria-hidden="true">{type.icon}</div>
             <h3 className="font-semibold text-gray-900 mb-1">{type.name}</h3>
-            <p className="text-sm text-gray-600">{type.description}</p>
+            <p className="text-sm text-gray-700">{type.description}</p>
           </button>
         ))}
       </div>

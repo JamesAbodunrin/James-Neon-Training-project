@@ -1,23 +1,35 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
+import { useState, useEffect, useRef, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { useAuth } from '@/contexts/AuthContext';
+import type { UserRole } from '@/types';
 
-export default function AuthPage() {
+const REGISTER_ROLES: { value: UserRole; label: string }[] = [
+  { value: 'PERSONAL', label: 'Personal (per session)' },
+  { value: 'RESEARCHER', label: 'Researcher (subscription)' },
+  { value: 'INSTITUTIONAL', label: 'Institutional' },
+];
+
+function AuthPageContent() {
   const [isSignUp, setIsSignUp] = useState(false);
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [role, setRole] = useState<UserRole>('PERSONAL');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { login, signup, socialLogin } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    if (searchParams.get('signup') === '1') setIsSignUp(true);
+  }, [searchParams]);
 
   // Gray analysis animation background
   useEffect(() => {
@@ -37,7 +49,6 @@ export default function AuthPage() {
     const dataPoints: Array<{ x: number; y: number; vx: number; vy: number; size: number; opacity: number }> = [];
     const chartElements: Array<{ x: number; y: number; width: number; height: number; vx: number; opacity: number }> = [];
     const pivotPoints: Array<{ x: number; y: number; radius: number; angle: number; speed: number }> = [];
-    const connectionLines: Array<{ x1: number; y1: number; x2: number; y2: number; opacity: number }> = [];
 
     // Initialize data points
     for (let i = 0; i < 25; i++) {
@@ -180,7 +191,7 @@ export default function AuthPage() {
           setLoading(false);
           return;
         }
-        const success = await signup(username, email, password);
+        const success = await signup(username, email, password, role);
         if (success) {
           router.push('/');
         } else {
@@ -194,7 +205,7 @@ export default function AuthPage() {
           setError('Invalid username or password');
         }
       }
-    } catch (err) {
+    } catch {
       setError('An error occurred. Please try again.');
     } finally {
       setLoading(false);
@@ -209,13 +220,13 @@ export default function AuthPage() {
       // In production, this would use OAuth
       const mockEmail = `${method}@example.com`;
       const mockName = method === 'github' ? 'GitHub User' : method === 'apple' ? 'Apple User' : 'Email User';
-      const success = await socialLogin(method, mockEmail, mockName);
+      const success = await socialLogin(method, mockEmail, mockName, 'PERSONAL');
       if (success) {
         router.push('/');
       } else {
         setError('Social login failed. Please try again.');
       }
-    } catch (err) {
+    } catch {
       setError('An error occurred. Please try again.');
     } finally {
       setLoading(false);
@@ -317,7 +328,7 @@ export default function AuthPage() {
                 <div className="w-full border-t border-gray-300"></div>
               </div>
               <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-white text-gray-500">Or {isSignUp ? 'sign up' : 'sign in'} with details</span>
+                <span className="px-2 bg-white text-gray-600">Or {isSignUp ? 'sign up' : 'sign in'} with details</span>
               </div>
             </div>
 
@@ -333,6 +344,24 @@ export default function AuthPage() {
               {isSignUp && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Account type
+                  </label>
+                  <select
+                    value={role}
+                    onChange={(e) => setRole(e.target.value as UserRole)}
+                    className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none bg-white text-gray-900 placeholder:text-gray-500"
+                  >
+                    {REGISTER_ROLES.map((r) => (
+                      <option key={r.value} value={r.value}>
+                        {r.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              {isSignUp && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
                     Username
                   </label>
                   <input
@@ -340,7 +369,7 @@ export default function AuthPage() {
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
                     required
-                    className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:ring-opacity-50 outline-none transition-all duration-200 bg-white focus:bg-blue-50 text-gray-900 placeholder:text-gray-400"
+                    className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:ring-opacity-50 outline-none transition-all duration-200 bg-white focus:bg-white text-gray-900 placeholder:text-gray-500 text-base"
                     placeholder="Choose a username"
                   />
                 </div>
@@ -356,7 +385,7 @@ export default function AuthPage() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
-                    className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:ring-opacity-50 outline-none transition-all duration-200 bg-white focus:bg-blue-50 text-gray-900 placeholder:text-gray-400"
+                    className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:ring-opacity-50 outline-none transition-all duration-200 bg-white focus:bg-white text-gray-900 placeholder:text-gray-500 text-base"
                     placeholder="your.email@example.com"
                   />
                 </div>
@@ -371,7 +400,7 @@ export default function AuthPage() {
                   value={isSignUp ? password : username}
                   onChange={(e) => (isSignUp ? setPassword(e.target.value) : setUsername(e.target.value))}
                   required
-                  className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:ring-opacity-50 outline-none transition-all duration-200 bg-white focus:bg-blue-50 text-gray-900 placeholder:text-gray-400"
+                  className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:ring-opacity-50 outline-none transition-all duration-200 bg-white focus:bg-white text-gray-900 placeholder:text-gray-500 text-base"
                   placeholder={isSignUp ? 'Create a password' : 'Enter username or user ID'}
                 />
               </div>
@@ -386,7 +415,7 @@ export default function AuthPage() {
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     required
-                    className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:ring-opacity-50 outline-none transition-all duration-200 bg-white focus:bg-blue-50 text-gray-900 placeholder:text-gray-400"
+                    className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:ring-opacity-50 outline-none transition-all duration-200 bg-white focus:bg-white text-gray-900 placeholder:text-gray-500 text-base"
                     placeholder="Confirm your password"
                   />
                 </div>
@@ -402,7 +431,7 @@ export default function AuthPage() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
-                    className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:ring-opacity-50 outline-none transition-all duration-200 bg-white focus:bg-blue-50 text-gray-900 placeholder:text-gray-400"
+                    className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:ring-opacity-50 outline-none transition-all duration-200 bg-white focus:bg-white text-gray-900 placeholder:text-gray-500 text-base"
                     placeholder="Enter your password"
                   />
                 </div>
@@ -433,7 +462,7 @@ export default function AuthPage() {
                 </p>
               ) : (
                 <p>
-                  Don't have an account?{' '}
+                  Don&apos;t have an account?{' '}
                   <button
                     onClick={() => {
                       setIsSignUp(true);
@@ -451,6 +480,24 @@ export default function AuthPage() {
       </main>
       <Footer />
     </div>
+  );
+}
+
+export default function AuthPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen">
+          <Header />
+          <main className="pt-16 flex items-center justify-center min-h-[50vh]">
+            <p className="text-gray-600">Loading…</p>
+          </main>
+          <Footer />
+        </div>
+      }
+    >
+      <AuthPageContent />
+    </Suspense>
   );
 }
 

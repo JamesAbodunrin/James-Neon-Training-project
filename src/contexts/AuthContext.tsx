@@ -1,55 +1,63 @@
 'use client';
 
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, ReactNode } from 'react';
+import type { UserRole } from '@/types';
 
-interface User {
+export interface User {
   userId: string;
   username: string;
   email: string;
+  role: UserRole;
   authMethod: 'email' | 'github' | 'apple' | 'manual';
 }
 
 interface AuthContextType {
   user: User | null;
   login: (username: string, password: string) => Promise<boolean>;
-  signup: (username: string, email: string, password: string) => Promise<boolean>;
-  socialLogin: (method: 'email' | 'github' | 'apple', email: string, name?: string) => Promise<boolean>;
+  signup: (username: string, email: string, password: string, role: UserRole) => Promise<boolean>;
+  socialLogin: (method: 'email' | 'github' | 'apple', email: string, name?: string, role?: UserRole) => Promise<boolean>;
   logout: () => void;
   isAuthenticated: boolean;
+  isAdmin: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+const DEFAULT_ROLE: UserRole = 'PERSONAL';
 
-  // Load user from localStorage on mount
-  useEffect(() => {
+function getInitialUser(): User | null {
+  if (typeof window === 'undefined') return null;
+  try {
     const storedUser = localStorage.getItem('thesisAnalyzer_user');
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-    }
-  }, []);
+    if (!storedUser) return null;
+    const parsed = JSON.parse(storedUser);
+    return { ...parsed, role: parsed.role ?? DEFAULT_ROLE };
+  } catch {
+    return null;
+  }
+}
 
-  // Generate unique user ID
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [user, setUser] = useState<User | null>(getInitialUser);
+
   const generateUserId = (): string => {
     return `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   };
 
-  // Login with username and password
   const login = async (username: string, password: string): Promise<boolean> => {
-    // Get users from localStorage
     const users = JSON.parse(localStorage.getItem('thesisAnalyzer_users') || '[]');
     const foundUser = users.find(
-      (u: any) => (u.username === username || u.userId === username) && u.password === password
+      (u: { username?: string; userId?: string; password?: string }) =>
+        (u.username === username || u.userId === username) && u.password === password
     );
 
     if (foundUser) {
       const userData: User = {
         userId: foundUser.userId,
-        username: foundUser.username,
+        username: foundUser.username ?? foundUser.email?.split('@')[0] ?? 'User',
         email: foundUser.email,
-        authMethod: foundUser.authMethod || 'manual',
+        role: foundUser.role ?? DEFAULT_ROLE,
+        authMethod: foundUser.authMethod ?? 'manual',
       };
       setUser(userData);
       localStorage.setItem('thesisAnalyzer_user', JSON.stringify(userData));
@@ -58,24 +66,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return false;
   };
 
-  // Signup with username, email, and password
-  const signup = async (username: string, email: string, password: string): Promise<boolean> => {
-    // Check if username or email already exists
+  const signup = async (
+    username: string,
+    email: string,
+    password: string,
+    role: UserRole = DEFAULT_ROLE
+  ): Promise<boolean> => {
     const users = JSON.parse(localStorage.getItem('thesisAnalyzer_users') || '[]');
-    const exists = users.some((u: any) => u.username === username || u.email === email);
+    const exists = users.some(
+      (u: { username?: string; email?: string }) => u.username === username || u.email === email
+    );
 
-    if (exists) {
-      return false;
-    }
+    if (exists) return false;
 
-    // Create new user
     const userId = generateUserId();
     const newUser = {
       userId,
       username,
       email,
       password,
-      authMethod: 'manual',
+      role,
+      authMethod: 'manual' as const,
     };
 
     users.push(newUser);
@@ -85,6 +96,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       userId,
       username,
       email,
+      role,
       authMethod: 'manual',
     };
     setUser(userData);
@@ -92,27 +104,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return true;
   };
 
-  // Social login (Email, GitHub, Apple)
   const socialLogin = async (
     method: 'email' | 'github' | 'apple',
     email: string,
-    name?: string
+    name?: string,
+    role: UserRole = DEFAULT_ROLE
   ): Promise<boolean> => {
-    // For demo purposes, we'll simulate social login
-    // In production, this would integrate with OAuth providers
     const users = JSON.parse(localStorage.getItem('thesisAnalyzer_users') || '[]');
-    let foundUser = users.find((u: any) => u.email === email && u.authMethod === method);
+    let foundUser = users.find(
+      (u: { email?: string; authMethod?: string }) => u.email === email && u.authMethod === method
+    );
 
     if (!foundUser) {
-      // Create new user for social login
       const userId = generateUserId();
-      const username = name || email.split('@')[0];
-      const newUser = {
-        userId,
-        username,
-        email,
-        authMethod: method,
-      };
+      const username = name ?? email.split('@')[0];
+      const newUser = { userId, username, email, authMethod: method, role };
       users.push(newUser);
       localStorage.setItem('thesisAnalyzer_users', JSON.stringify(users));
       foundUser = newUser;
@@ -120,8 +126,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const userData: User = {
       userId: foundUser.userId,
-      username: foundUser.username,
+      username: foundUser.username ?? foundUser.email?.split('@')[0],
       email: foundUser.email,
+      role: foundUser.role ?? DEFAULT_ROLE,
       authMethod: method,
     };
     setUser(userData);
@@ -129,7 +136,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return true;
   };
 
-  // Logout
   const logout = () => {
     setUser(null);
     localStorage.removeItem('thesisAnalyzer_user');
@@ -144,6 +150,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         socialLogin,
         logout,
         isAuthenticated: !!user,
+        isAdmin: user?.role === 'ADMIN',
       }}
     >
       {children}
@@ -158,4 +165,3 @@ export function useAuth() {
   }
   return context;
 }
-

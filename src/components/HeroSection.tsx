@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 
@@ -21,11 +20,11 @@ export default function HeroSection({ className = '' }: HeroSectionProps) {
     }
   };
 
-  const handleStartProject = () => {
+  const handleStartAnalysis = () => {
     if (isAuthenticated) {
-      router.push('/analysis');
+      router.push('/dashboard');
     } else {
-      router.push('/auth');
+      router.push('/login');
     }
   };
 
@@ -184,10 +183,10 @@ export default function HeroSection({ className = '' }: HeroSectionProps) {
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <button
-              onClick={handleStartProject}
+              onClick={handleStartAnalysis}
               className="px-8 py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg font-semibold text-lg hover:shadow-lg transition-all duration-300 transform hover:scale-105 text-center"
             >
-              {isAuthenticated ? 'Start a Project' : 'Get Started'}
+              Start Analysis
             </button>
             <button
               onClick={handleLearnMore}
