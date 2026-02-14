@@ -17,7 +17,7 @@ export default function Footer({ className = '' }: FooterProps) {
               </div>
               <span className="text-xl font-bold text-white">ThesisAnalyzer</span>
             </div>
-            <p className="text-sm text-gray-400">
+            <p className="text-sm text-gray-300">
               Empowering students with powerful thesis analysis tools and data visualization capabilities.
             </p>
           </div>
@@ -27,23 +27,23 @@ export default function Footer({ className = '' }: FooterProps) {
             <h3 className="text-white font-semibold mb-4">Quick Links</h3>
             <ul className="space-y-2">
               <li>
-                <Link href="/" className="text-sm hover:text-white transition-colors">
+                <Link href="/" className="text-sm text-gray-300 hover:text-white transition-colors">
                   Home
                 </Link>
               </li>
               <li>
-                <Link href="/projects" className="text-sm hover:text-white transition-colors">
+                <Link href="/pricing" className="text-sm text-gray-300 hover:text-white transition-colors">
+                  Pricing
+                </Link>
+              </li>
+              <li>
+                <Link href="/projects" className="text-sm text-gray-300 hover:text-white transition-colors">
                   Projects
                 </Link>
               </li>
               <li>
-                <Link href="/analysis" className="text-sm hover:text-white transition-colors">
+                <Link href="/analysis" className="text-sm text-gray-300 hover:text-white transition-colors">
                   Analysis
-                </Link>
-              </li>
-              <li>
-                <Link href="/about" className="text-sm hover:text-white transition-colors">
-                  About Us
                 </Link>
               </li>
             </ul>
@@ -54,22 +54,22 @@ export default function Footer({ className = '' }: FooterProps) {
             <h3 className="text-white font-semibold mb-4">Resources</h3>
             <ul className="space-y-2">
               <li>
-                <Link href="/docs" className="text-sm hover:text-white transition-colors">
+                <Link href="/docs" className="text-sm text-gray-300 hover:text-white transition-colors">
                   Documentation
                 </Link>
               </li>
               <li>
-                <Link href="/tutorials" className="text-sm hover:text-white transition-colors">
+                <Link href="/tutorials" className="text-sm text-gray-300 hover:text-white transition-colors">
                   Tutorials
                 </Link>
               </li>
               <li>
-                <Link href="/support" className="text-sm hover:text-white transition-colors">
+                <Link href="/support" className="text-sm text-gray-300 hover:text-white transition-colors">
                   Support
                 </Link>
               </li>
               <li>
-                <Link href="/blog" className="text-sm hover:text-white transition-colors">
+                <Link href="/blog" className="text-sm text-gray-300 hover:text-white transition-colors">
                   Blog
                 </Link>
               </li>
@@ -79,7 +79,7 @@ export default function Footer({ className = '' }: FooterProps) {
           {/* Contact */}
           <div>
             <h3 className="text-white font-semibold mb-4">Contact</h3>
-            <ul className="space-y-2 text-sm">
+            <ul className="space-y-2 text-sm text-gray-300">
               <li>
                 <a href="mailto:support@thesisanalyzer.com" className="hover:text-white transition-colors">
                   support@thesisanalyzer.com
@@ -116,7 +116,7 @@ export default function Footer({ className = '' }: FooterProps) {
           </div>
         </div>
 
-        <div className="border-t border-gray-800 mt-8 pt-8 text-center text-sm">
+        <div className="border-t border-gray-800 mt-8 pt-8 text-center text-sm text-gray-300">
           <p>&copy; {new Date().getFullYear()} ThesisAnalyzer. All rights reserved.</p>
         </div>
       </div>

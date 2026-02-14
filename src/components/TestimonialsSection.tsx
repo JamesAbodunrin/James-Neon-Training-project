@@ -70,11 +70,13 @@ export default function TestimonialsSection({ className = '' }: TestimonialsSect
     const scrollSpeed = 1;
 
     function scroll() {
+      const el = scrollRef.current;
+      if (!el) return;
       scrollPosition += scrollSpeed;
-      if (scrollPosition >= scrollContainer.scrollWidth / 2) {
+      if (scrollPosition >= el.scrollWidth / 2) {
         scrollPosition = 0;
       }
-      scrollContainer.scrollLeft = scrollPosition;
+      el.scrollLeft = scrollPosition;
       requestAnimationFrame(scroll);
     }
 
@@ -122,7 +124,7 @@ export default function TestimonialsSection({ className = '' }: TestimonialsSect
                     </svg>
                   ))}
                 </div>
-                <p className="text-gray-700 mb-4 italic">"{testimonial.content}"</p>
+                <p className="text-gray-700 mb-4 italic">&quot;{testimonial.content}&quot;</p>
                 <div className="border-t border-gray-200 pt-4">
                   <p className="font-semibold text-gray-900">{testimonial.name}</p>
                   <p className="text-sm text-gray-600">{testimonial.role}</p>

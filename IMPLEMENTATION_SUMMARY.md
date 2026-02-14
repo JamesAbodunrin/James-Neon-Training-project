@@ -23,7 +23,18 @@
 - ✅ 1 Context provider (AuthContext)
 - ✅ 1 Utility function (analysisEngine)
 
-### Design Consistency
+### Analysis engine and report
+- ✅ Predefined analyses aligned with analysis type and application (getApplicableAnalyses)
+- ✅ Statistical: simple percentage (Total + Cumulative %), descriptive, correlation, t-test, chi-square
+- ✅ Regression: linear regression (Y on X: slope, intercept, R², p-value)
+- ✅ Clustering: k-means (k=2 or 3; cluster sizes and centroids)
+- ✅ Time-series: linear trend over time index
+- ✅ Text-analysis: word frequency (top 20 from text/categorical column)
+- ✅ Effect sizes: r², Cohen’s d, Cramér’s V; assumption notes in method
+- ✅ Report: DOCX with method, tables, charts/figures (images + data tables), interpretation, insights, recommendations
+- ✅ Shared CSV parsing (csvUtils); 20MB file size validation; error boundary around results
+
+### Design consistency
 - ✅ Fixed header on all pages
 - ✅ Footer on all pages
 - ✅ Consistent color scheme (blue-purple gradient)
@@ -43,7 +54,7 @@
 5. `src/app/projects/[id]/page.tsx` - Project detail page (dynamic)
 6. `src/app/features/[slug]/page.tsx` - Feature detail page (dynamic)
 
-### Components (14)
+### Components (16)
 1. `src/components/Header.tsx` - Navigation header
 2. `src/components/Footer.tsx` - Site footer
 3. `src/components/HeroSection.tsx` - Hero section with animations
@@ -51,17 +62,22 @@
 5. `src/components/HowSection.tsx` - How-to guide
 6. `src/components/TestimonialsSection.tsx` - Testimonials carousel
 7. `src/components/FeatureContent.tsx` - Feature detail content
-8. `src/components/AnalysisTypeSelector.tsx` - Analysis type selection
-9. `src/components/ApplicationSelector.tsx` - Application selection
-10. `src/components/DataInput.tsx` - Data input interface
-11. `src/components/AnalysisResults.tsx` - Analysis results display
-12. `src/components/ProjectsList.tsx` - Projects grid
-13. `src/components/ProjectCard.tsx` - Individual project card
-14. `src/components/ProjectDetail.tsx` - Project detail view
+8. `src/components/AnalysisTypeSelector.tsx` - Analysis type selection (6 types)
+9. `src/components/ApplicationSelector.tsx` - Application selection (filtered by type)
+10. `src/components/AnalysisOptionsSelector.tsx` - Analyses to run (filtered by type + application)
+11. `src/components/DataInput.tsx` - Data input (manual, upload 20MB max, spreadsheet)
+12. `src/components/AnalysisResults.tsx` - Results display (tables, charts, copy/download)
+13. `src/components/AnalysisErrorBoundary.tsx` - Error boundary around results section
+14. `src/components/ProjectsList.tsx` - Projects grid
+15. `src/components/ProjectCard.tsx` - Individual project card
+16. `src/components/ProjectDetail.tsx` - Project detail view
 
-### Context & Utilities (2)
-1. `src/contexts/AuthContext.tsx` - Authentication context
-2. `src/utils/analysisEngine.ts` - Analysis processing engine
+### Context & Utilities (5)
+1. `src/contexts/AuthContext.tsx` - Authentication context (lazy initial state from localStorage)
+2. `src/utils/analysisEngine.ts` - Analysis engine (all predefined analyses; type/application filtering)
+3. `src/utils/reportDocx.ts` - DOCX report generation (method, tables, charts, interpretation, effect sizes)
+4. `src/utils/fileParser.ts` - File parsing (CSV, XLSX, DOCX, TXT; 20MB limit)
+5. `src/utils/csvUtils.ts` - Shared CSV parsing (parseCSVLine, parseCSVToRows, rowsToCSVString)
 
 ### Configuration Files
 - `src/app/layout.tsx` - Root layout with AuthProvider

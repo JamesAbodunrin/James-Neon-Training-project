@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, ChangeEvent, KeyboardEvent } from 'react';
+import { parseUploadedFile, MAX_FILE_SIZE_BYTES } from '@/utils/fileParser';
 
 interface DataInputProps {
   onDataChange: (data: string) => void;
@@ -16,6 +17,8 @@ export default function DataInput({ onDataChange, selectedApplication, className
   const [inputMethod, setInputMethod] = useState<'manual' | 'upload'>('manual');
   const [manualData, setManualData] = useState('');
   const [fileName, setFileName] = useState<string | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Spreadsheet state for Excel
@@ -59,30 +62,47 @@ export default function DataInput({ onDataChange, selectedApplication, className
     onDataChange(value);
   };
 
-  const handleFileUpload = (e: ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      setFileName(file.name);
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const content = event.target?.result as string;
-        setManualData(content);
-        onDataChange(content);
-        
-        // If Excel is selected, try to parse as CSV and load into spreadsheet
-        if (selectedApplication === 'excel' && file.name.endsWith('.csv')) {
+    if (!file) return;
+    setUploadError(null);
+    if (file.size > MAX_FILE_SIZE_BYTES) {
+      setUploadError(`File size must be 20MB or less. This file is ${(file.size / (1024 * 1024)).toFixed(1)}MB.`);
+      e.target.value = '';
+      return;
+    }
+    setUploading(true);
+    setFileName(file.name);
+    try {
+      const { data, error } = await parseUploadedFile(file);
+      if (error) {
+        setUploadError(error);
+        setManualData('');
+        onDataChange('');
+        setFileName(null);
+      } else {
+        setManualData(data);
+        onDataChange(data);
+        if (selectedApplication === 'excel' && /\.(csv|txt|tsv)$/i.test(file.name)) {
           try {
-            const parsed = csvToSpreadsheet(content);
+            const parsed = csvToSpreadsheet(data);
             setSpreadsheet(parsed);
             setRows(parsed.length);
             setCols(parsed[0]?.length || 4);
-          } catch (err) {
-            console.error('Failed to parse CSV:', err);
+          } catch {
+            // ignore
           }
         }
-      };
-      reader.readAsText(file);
+      }
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : 'Failed to read file.');
+      setManualData('');
+      onDataChange('');
+      setFileName(null);
+    } finally {
+      setUploading(false);
     }
+    e.target.value = '';
   };
 
   const handleFileClick = () => {
@@ -155,21 +175,31 @@ export default function DataInput({ onDataChange, selectedApplication, className
           <input
             ref={fileInputRef}
             type="file"
-            accept=".csv,.json,.txt,.xlsx,.xls"
+            accept=".csv,.xlsx,.xls,.docx,.doc,.pdf,.txt,.tsv"
             onChange={handleFileUpload}
             className="hidden"
+            aria-label="Upload data file (CSV, Excel, Word, PDF, or text)"
           />
+          {uploadError && (
+            <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+              {uploadError}
+            </div>
+          )}
           <div
-            onClick={handleFileClick}
-            className="border-2 border-dashed border-gray-300 rounded-lg p-12 text-center cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition-all duration-200"
+            onClick={() => !uploading && handleFileClick()}
+            className={`border-2 border-dashed rounded-lg p-12 text-center transition-all duration-200 ${uploading ? 'border-gray-200 bg-gray-50 cursor-wait' : 'border-gray-300 cursor-pointer hover:border-blue-500 hover:bg-blue-50'}`}
           >
-            {fileName ? (
+            {uploading ? (
+              <div>
+                <p className="text-gray-700 font-medium">Reading file…</p>
+              </div>
+            ) : fileName ? (
               <div>
                 <svg className="w-12 h-12 text-green-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
                 <p className="text-gray-900 font-medium">{fileName}</p>
-                <p className="text-sm text-gray-500 mt-2">Click to upload a different file</p>
+                <p className="text-sm text-gray-600 mt-2">Click to upload a different file</p>
               </div>
             ) : (
               <div>
@@ -177,7 +207,7 @@ export default function DataInput({ onDataChange, selectedApplication, className
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                 </svg>
                 <p className="text-gray-900 font-medium mb-2">Click to upload a file</p>
-                <p className="text-sm text-gray-500">Supports CSV, JSON, TXT, Excel files</p>
+                <p className="text-sm text-gray-600">Supports CSV, XLSX, DOCX, PDF, TXT</p>
               </div>
             )}
           </div>
@@ -239,7 +269,7 @@ export default function DataInput({ onDataChange, selectedApplication, className
                               onChange={(e) => handleCellChange(rowIdx, colIdx, e.target.value)}
                               onFocus={() => setActiveCell({ row: rowIdx, col: colIdx })}
                               onKeyDown={(e) => handleCellKeyDown(e, rowIdx, colIdx)}
-                              className={`w-full min-w-32 p-2 outline-none border-0 ${
+                              className={`w-full min-w-32 p-2 outline-none border-0 text-gray-900 text-base ${
                                 activeCell?.row === rowIdx && activeCell?.col === colIdx
                                   ? 'bg-blue-100 ring-2 ring-blue-500'
                                   : 'bg-white hover:bg-gray-50'
@@ -253,7 +283,7 @@ export default function DataInput({ onDataChange, selectedApplication, className
                 </table>
               </div>
             </div>
-            <p className="mt-2 text-sm text-gray-500">
+            <p className="mt-2 text-sm text-gray-600">
               Click cells to edit. Use Tab/Enter to navigate. Data is automatically saved.
             </p>
           </div>
@@ -284,9 +314,9 @@ data = {
 
 df = pd.DataFrame(data)
 print(df)`}
-              className="w-full h-80 p-4 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none resize-none font-mono text-sm bg-gray-50"
+              className="w-full h-80 p-4 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none resize-none font-mono text-sm text-gray-900 bg-white placeholder:text-gray-500"
             />
-            <p className="mt-2 text-sm text-gray-500">
+            <p className="mt-2 text-sm text-gray-600">
               Write Python code using pandas, numpy, or other data analysis libraries
             </p>
           </div>
@@ -316,9 +346,9 @@ data <- data.frame(
 )
 
 print(data)`}
-              className="w-full h-80 p-4 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none resize-none font-mono text-sm bg-gray-50"
+              className="w-full h-80 p-4 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none resize-none font-mono text-sm text-gray-900 bg-white placeholder:text-gray-500"
             />
-            <p className="mt-2 text-sm text-gray-500">
+            <p className="mt-2 text-sm text-gray-600">
               Write R code using dplyr, ggplot2, or other R packages
             </p>
           </div>
@@ -334,9 +364,9 @@ print(data)`}
               value={manualData}
               onChange={handleManualChange}
               placeholder="Enter MATLAB array format:&#10;[1 2 3; 4 5 6; 7 8 9]&#10;or&#10;data = [1, 2, 3; 4, 5, 6];"
-              className="w-full h-64 p-4 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none resize-none font-mono text-sm"
+              className="w-full h-64 p-4 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none resize-none font-mono text-sm text-gray-900 bg-white placeholder:text-gray-500"
             />
-            <p className="mt-2 text-sm text-gray-500">
+            <p className="mt-2 text-sm text-gray-600">
               Enter data in MATLAB matrix format (semicolon-separated rows, space/comma-separated columns)
             </p>
           </div>
@@ -352,9 +382,9 @@ print(data)`}
               value={manualData}
               onChange={handleManualChange}
               placeholder="Variable1 Variable2 Variable3&#10;Value1 Value2 Value3&#10;Value4 Value5 Value6"
-              className="w-full h-64 p-4 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none resize-none font-mono text-sm"
+              className="w-full h-64 p-4 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none resize-none font-mono text-sm text-gray-900 bg-white placeholder:text-gray-500"
             />
-            <p className="mt-2 text-sm text-gray-500">
+            <p className="mt-2 text-sm text-gray-600">
               Enter data with variable names in the first row, followed by tab or space-separated values
             </p>
           </div>
@@ -370,9 +400,9 @@ print(data)`}
               value={manualData}
               onChange={handleManualChange}
               placeholder="Enter your text data here for sentiment analysis, topic modeling, or NLP processing..."
-              className="w-full h-64 p-4 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none resize-none"
+              className="w-full h-64 p-4 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none resize-none text-gray-900 bg-white placeholder:text-gray-500"
             />
-            <p className="mt-2 text-sm text-gray-500">
+            <p className="mt-2 text-sm text-gray-600">
               Enter text data for natural language processing and text analysis
             </p>
           </div>
@@ -388,9 +418,9 @@ print(data)`}
               value={manualData}
               onChange={handleManualChange}
               placeholder="Paste your data here...&#10;Example CSV:&#10;Name,Age,Score&#10;John,25,85&#10;Jane,30,92"
-              className="w-full h-64 p-4 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none resize-none font-mono text-sm"
+              className="w-full h-64 p-4 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none resize-none font-mono text-sm text-gray-900 bg-white placeholder:text-gray-500"
             />
-            <p className="mt-2 text-sm text-gray-500">
+            <p className="mt-2 text-sm text-gray-600">
               Supports CSV, JSON, or tab-separated values. Select an application for specialized input.
             </p>
           </div>

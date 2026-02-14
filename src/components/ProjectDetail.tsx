@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 
 interface ProjectDetailProps {
   projectId: string;
@@ -81,7 +80,6 @@ const projects: Project[] = [
 ];
 
 export default function ProjectDetail({ projectId }: ProjectDetailProps) {
-  const router = useRouter();
   const project = projects.find((p) => p.id === projectId);
   const [data, setData] = useState<DataPoint[]>([]);
   const [loading, setLoading] = useState(true);
@@ -98,7 +96,7 @@ export default function ProjectDetail({ projectId }: ProjectDetailProps) {
         const posts = await response.json();
         
         // Transform API data to our format
-        const transformedData: DataPoint[] = posts.slice(0, 20).map((post: any, index: number) => ({
+        const transformedData: DataPoint[] = posts.slice(0, 20).map((post: { id: number; title: string }, index: number) => ({
           id: post.id,
           label: post.title.substring(0, 30),
           value: post.id * 10 + Math.random() * 50,
@@ -169,7 +167,7 @@ export default function ProjectDetail({ projectId }: ProjectDetailProps) {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="text-center">
           <h1 className="text-4xl font-bold text-gray-900 mb-4">Project Not Found</h1>
-          <p className="text-gray-600 mb-8">The project you're looking for doesn't exist.</p>
+          <p className="text-gray-600 mb-8">The project you&apos;re looking for doesn&apos;t exist.</p>
           <Link
             href="/projects"
             className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"

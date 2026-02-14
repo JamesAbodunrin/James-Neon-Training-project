@@ -1,0 +1,363 @@
+// ThesisAnalyzer – Database schema
+// Aligned with docs/ERD.md and frontend data (src/types, AuthContext, admin, analysisEngine).
+// Use: npx prisma generate (and optionally prisma migrate / db push).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ========== Enums (match ERD and frontend) ==========
+
+enum UserRole {
+  PERSONAL
+  RESEARCHER
+  INSTITUTIONAL
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  EXPIRED
+}
+
+enum PaymentKind {
+  PERSONAL_SESSION
+  SUBSCRIPTION
+  INSTITUTION_SEATS
+}
+
+enum PaymentStatus {
+  INITIATED
+  SUCCEEDED
+  FAILED
+  CANCELED
+}
+
+enum AccountContext {
+  PERSONAL
+  RESEARCHER
+  INSTITUTIONAL
+}
+
+enum SessionStatus {
+  CREATED
+  PAID
+  UPLOADED
+  EXECUTED
+  REPORTED
+  EXPIRED
+  ABORTED
+}
+
+enum FileType {
+  CSV
+  XLSX
+}
+
+enum JobMode {
+  PREDEFINED
+  ADVANCED
+}
+
+enum SandboxValidationStatus {
+  PASSED
+  BLOCKED
+}
+
+enum JobStatus {
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  FAILED
+  TIMED_OUT
+}
+
+enum BillingPeriod {
+  ONE_TIME
+  MONTHLY
+  YEARLY
+}
+
+enum SubscriptionProvider {
+  STRIPE
+  PAYSTACK
+  OTHER
+}
+
+// ========== 1. Core entities ==========
+
+model User {
+  id             String     @id @default(uuid()) @db.Uuid
+  email          String     @unique
+  username       String?    // Frontend AuthContext / display; optional for legacy
+  passwordHash   String     @map("password_hash")
+  role           UserRole
+  institutionId  String?    @map("institution_id") @db.Uuid
+  status         UserStatus @default(ACTIVE)
+  createdAt      DateTime   @default(now()) @map("created_at")
+  updatedAt      DateTime   @updatedAt @map("updated_at")
+
+  institution       Institution?       @relation(fields: [institutionId], references: [id])
+  institutionSeat   InstitutionSeat?
+  subscriptions    Subscription[]
+  payments         Payment[]
+  analysisSessions AnalysisSession[]
+  assignedSeats    InstitutionSeat[]   @relation("AssignedByAdmin")
+  toolConfigs      ToolConfig[]
+  pricingTiers     PricingTier[]
+  auditLogs        AuditLog[]          @relation("ActorUser")
+  historyDeletions HistoryDeletion[]
+
+  @@map("users")
+}
+
+model Institution {
+  id           String   @id @default(uuid()) @db.Uuid
+  name         String   @unique
+  seatLimit    Int      @map("seat_limit")
+  retentionDays Int?    @map("retention_days")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  users  User[]             @relation(fields: [id], references: [institutionId])
+  seats  InstitutionSeat[]
+
+  @@map("institutions")
+}
+
+model InstitutionSeat {
+  id                String    @id @default(uuid()) @db.Uuid
+  institutionId      String    @map("institution_id") @db.Uuid
+  userId            String    @unique @map("user_id") @db.Uuid
+  assignedByAdminId String    @map("assigned_by_admin_id") @db.Uuid
+  assignedAt        DateTime  @map("assigned_at")
+  revokedAt         DateTime? @map("revoked_at")
+
+  institution     Institution @relation(fields: [institutionId], references: [id])
+  user           User        @relation(fields: [userId], references: [id])
+  assignedByAdmin User       @relation("AssignedByAdmin", fields: [assignedByAdminId], references: [id])
+
+  @@map("institution_seats")
+}
+
+// ========== 2. Billing / entitlements ==========
+
+model Plan {
+  id                String   @id @default(uuid()) @db.Uuid
+  code              String   @unique // PERSONAL_SESSION, RESEARCHER_SUB, INSTITUTIONAL
+  name              String?
+  allowAdvancedMode Boolean  @default(false) @map("allow_advanced_mode")
+  maxDatasetMb      Int      @default(20) @map("max_dataset_mb")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  subscriptions Subscription[]
+
+  @@map("plans")
+}
+
+model Subscription {
+  id                    String              @id @default(uuid()) @db.Uuid
+  userId                String              @map("user_id") @db.Uuid
+  planId                String              @map("plan_id") @db.Uuid
+  status                SubscriptionStatus
+  currentPeriodStart    DateTime?           @map("current_period_start")
+  currentPeriodEnd      DateTime?           @map("current_period_end")
+  provider              SubscriptionProvider? @default(OTHER)
+  providerCustomerId    String?             @map("provider_customer_id")
+  providerSubscriptionId String?            @map("provider_subscription_id")
+  createdAt             DateTime           @default(now()) @map("created_at")
+  updatedAt             DateTime           @updatedAt @map("updated_at")
+
+  user   User @relation(fields: [userId], references: [id])
+  plan   Plan @relation(fields: [planId], references: [id])
+
+  @@map("subscriptions")
+}
+
+model Payment {
+  id                 String        @id @default(uuid()) @db.Uuid
+  userId             String        @map("user_id") @db.Uuid
+  kind               PaymentKind
+  amountMinor        Int           @map("amount_minor")
+  currency           String        @db.Char(3)
+  status             PaymentStatus
+  provider           String?
+  providerPaymentId  String?       @map("provider_payment_id")
+  createdAt          DateTime      @default(now()) @map("created_at")
+
+  user            User             @relation(fields: [userId], references: [id])
+  analysisSessions AnalysisSession[]
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([status])
+  @@map("payments")
+}
+
+// ========== 3. Analysis lifecycle ==========
+
+model AnalysisSession {
+  id              String        @id @default(uuid()) @db.Uuid
+  userId          String        @map("user_id") @db.Uuid
+  accountContext AccountContext @map("account_context")
+  status          SessionStatus
+  paidPaymentId   String?       @map("paid_payment_id") @db.Uuid
+  expiresAt       DateTime?     @map("expires_at")
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+
+  user           User            @relation(fields: [userId], references: [id])
+  paidPayment    Payment?        @relation(fields: [paidPaymentId], references: [id])
+  datasetUpload  DatasetUpload?
+  analysisJobs   AnalysisJob[]
+  snapshots      AnalysisSnapshot[]
+
+  @@map("analysis_sessions")
+}
+
+model DatasetUpload {
+  id                 String    @id @default(uuid()) @db.Uuid
+  sessionId          String    @unique @map("session_id") @db.Uuid
+  originalFilename   String    @map("original_filename")
+  fileType           FileType  @map("file_type")
+  fileSizeBytes      Int       @map("file_size_bytes")
+  ephemeralObjectKey String    @map("ephemeral_object_key")
+  uploadedAt         DateTime  @map("uploaded_at")
+  deletedAt         DateTime? @map("deleted_at")
+
+  session AnalysisSession @relation(fields: [sessionId], references: [id])
+
+  @@map("dataset_uploads")
+}
+
+model AnalysisJob {
+  id                     String                 @id @default(uuid()) @db.Uuid
+  sessionId              String                 @map("session_id") @db.Uuid
+  mode                   JobMode
+  toolCode               String?                @map("tool_code") // DESCRIPTIVE, TTEST, linear_regression, etc.
+  caseSensitive          Boolean                @default(false) @map("case_sensitive")
+  parametersJson         Json                   @map("parameters_json")
+  pythonCode            String?                @map("python_code")  @db.Text
+  sandboxValidationStatus SandboxValidationStatus? @map("sandbox_validation_status")
+  status                 JobStatus
+  startedAt              DateTime?              @map("started_at")
+  finishedAt             DateTime?              @map("finished_at")
+  runtimeMs              Int?                   @map("runtime_ms")
+  errorCode              String?                @map("error_code")
+  errorMessage           String?                @map("error_message") @db.Text
+  createdAt              DateTime               @default(now()) @map("created_at")
+
+  session  AnalysisSession   @relation(fields: [sessionId], references: [id])
+  snapshot AnalysisSnapshot?
+
+  @@index([sessionId, createdAt(sort: Desc)])
+  @@index([status])
+  @@map("analysis_jobs")
+}
+
+// ========== 4. Snapshot + report + history ==========
+
+model AnalysisSnapshot {
+  id               String   @id @default(uuid()) @db.Uuid
+  userId           String   @map("user_id") @db.Uuid
+  sessionId        String   @map("session_id") @db.Uuid
+  analysisJobId    String   @unique @map("analysis_job_id") @db.Uuid
+  title            String?
+  metadataJson     Json     @map("metadata_json") // dataset meta, timestamps, account context; no raw data
+  outputsJson     Json     @map("outputs_json")   // tables, statistics, chart specs; no raw data
+  interpretationJson Json  @map("interpretation_json")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  user     User         @relation(fields: [userId], references: [id])
+  session  AnalysisSession @relation(fields: [sessionId], references: [id])
+  job      AnalysisJob   @relation(fields: [analysisJobId], references: [id])
+  report   Report?
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@map("analysis_snapshots")
+}
+
+model Report {
+  id               String   @id @default(uuid()) @db.Uuid
+  snapshotId       String   @unique @map("snapshot_id") @db.Uuid
+  docObjectKey     String   @map("doc_object_key")
+  docMimeType      String   @default("application/vnd.openxmlformats-officedocument.wordprocessingml.document") @map("doc_mime_type")
+  generatedAt      DateTime @map("generated_at")
+  downloadedCount  Int      @default(0) @map("downloaded_count")
+  lastDownloadedAt  DateTime? @map("last_downloaded_at")
+
+  snapshot AnalysisSnapshot @relation(fields: [snapshotId], references: [id])
+
+  @@map("reports")
+}
+
+model HistoryDeletion {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  snapshotId String   @map("snapshot_id") @db.Uuid // Store ID even if snapshot hard-deleted (GDPR audit)
+  deletedAt  DateTime @map("deleted_at")
+  reason     String?
+
+  user User @relation(fields: [userId], references: [id])
+  // No FK to analysis_snapshots so we can log deletions after snapshot is removed
+
+  @@map("history_deletions")
+}
+
+// ========== 5. Admin config + audit ==========
+
+model ToolConfig {
+  id                String   @id @default(uuid()) @db.Uuid
+  toolCode          String   @unique @map("tool_code") // statistical, regression, correlation, etc. (frontend ids)
+  enabled           Boolean
+  configJson        Json?    @map("config_json")
+  updatedByAdminId  String   @map("updated_by_admin_id") @db.Uuid
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  updatedByAdmin User @relation(fields: [updatedByAdminId], references: [id])
+
+  @@map("tool_configs")
+}
+
+model PricingTier {
+  id                String        @id @default(uuid()) @db.Uuid
+  tierCode          String        @unique @map("tier_code") // PERSONAL_SESSION, RESEARCHER_SUB, INSTITUTION_SEATS
+  amountMinor       Int           @map("amount_minor")
+  currency          String        @db.Char(3)
+  billingPeriod     BillingPeriod @map("billing_period")
+  active            Boolean       @default(true)
+  updatedByAdminId  String        @map("updated_by_admin_id") @db.Uuid
+  updatedAt         DateTime      @updatedAt @map("updated_at")
+
+  updatedByAdmin User @relation(fields: [updatedByAdminId], references: [id])
+
+  @@map("pricing_tiers")
+}
+
+model AuditLog {
+  id            String   @id @default(uuid()) @db.Uuid
+  actorUserId   String?  @map("actor_user_id") @db.Uuid
+  action        String   // LOGIN, PAYMENT_SUCCEEDED, DATASET_UPLOADED, SANDBOX_BLOCKED, ANALYSIS_RUN, SNAPSHOT_DELETED, etc.
+  targetType    String?  @map("target_type")
+  targetId      String?  @map("target_id") @db.Uuid
+  metadataJson  Json?    @map("metadata_json") // no raw dataset; ok: file size, tool_code, runtime
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  actorUser User? @relation("ActorUser", fields: [actorUserId], references: [id])
+
+  @@index([action, createdAt(sort: Desc)])
+  @@index([actorUserId, createdAt(sort: Desc)])
+  @@map("audit_logs")
+}

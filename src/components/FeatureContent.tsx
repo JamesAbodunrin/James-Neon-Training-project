@@ -202,7 +202,7 @@ export default function FeatureContent({ slug }: FeatureContentProps) {
         <div className="text-center">
           <h1 className="text-4xl font-bold text-gray-900 mb-4">Feature Not Found</h1>
           <p className="text-gray-600 mb-8">
-            The feature you're looking for doesn't exist. Slug received: "{slug}"
+            The feature you&apos;re looking for doesn&apos;t exist. Slug received: &quot;{slug}&quot;
           </p>
           <p className="text-sm text-gray-500 mb-4">
             Available features: {Object.keys(featureDetails).join(', ')}
@@ -389,10 +389,10 @@ export default function FeatureContent({ slug }: FeatureContentProps) {
           ) : (
             <>
               <Link
-                href="/auth"
+                href={isAuthenticated ? '/dashboard' : '/auth'}
                 className="px-8 py-3 bg-white text-blue-600 rounded-lg font-semibold hover:bg-gray-100 transition-colors"
               >
-                Sign Up Free
+                {isAuthenticated ? 'Go to Dashboard' : 'Sign Up Free'}
               </Link>
               <Link
                 href="/analysis"
